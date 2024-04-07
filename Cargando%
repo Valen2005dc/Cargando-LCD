@@ -1,0 +1,80 @@
+#include "stm32f401xe.h"
+
+
+int max =168000;
+int carga;
+int freq=0,conteo=0;
+int bajada=0;
+char freq_string[17];
+
+void send_comando(char a) {
+    GPIOC->ODR = a | (1UL << 9);
+    for(int tiempo=0; tiempo<1000; tiempo++);
+    GPIOC->ODR &= ~(1UL << 9);
+}
+
+void send_dato(char b) {
+    GPIOC->ODR = b | (3 << 8);
+    for(int tiempo=0; tiempo<1000; tiempo++);
+    GPIOC->ODR &= ~(1UL << 9);
+}
+
+
+void EXTI0_IRQHandler(void)
+{
+EXTI->PR|= (1UL<<0); //asigna la interrupcion a el pin 7 del puerto C
+conteo++; //le suma una unidad a la variable conteo cada que se detecta una interrupcion
+}
+void SysTick_Handler(void) { // Estas tareas se ejecutaran cada 1 segundo
+freq=conteo; // Cada segundo guarda el numero de interrupciones en la variable frecuencia
+conteo=0;          // Devuelve la variable conteo a 0
+}
+int main(void) {
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;//ACTIVACION DEL RELOJ
+SYSCFG->EXTICR [0]|= 0x0000;
+EXTI ->FTSR |= 0x0001;//FLANCO DE BAJADA.
+EXTI -> IMR |= 0x0001;//ENMASCARAMIENTO EXTI0.
+NVIC_EnableIRQ(EXTI0_IRQn);
+    RCC->AHB1ENR |= 7;//ACTIVACION DE LOS PUERTOS A, B Y C.
+    GPIOA->MODER |= 0x00000;//TODOS LOS PINES DEL PUERTO A EN 1.
+GPIOC->MODER |= 0x55555555;//TODOS LOS PINES DEL PUERTO C SALIDA.
+GPIOC->OSPEEDR |= 0xFFFFFFFF;//VELOCIDAD DE FRECUENCIA 100MHz.
+GPIOA->OSPEEDR |= 0xFFFFFFFF;//VELOCIDAD DE FRECUENCIA 100MHz.
+    SystemCoreClockUpdate();
+SysTick_Config(SystemCoreClock);
+
+     
+char clear = 0x01;
+    char set = 0x38;
+    char disp_on = 0x0E;
+    char mode = 0x06;
+    char ddram1L = 0x80;//LINEA 1.
+char ddram2L = 0xC0;//LINEA 2.
+    send_comando(clear);
+    for(int tiempo=0; tiempo<1000; tiempo++);
+    send_comando(set);
+    send_comando(disp_on);
+    send_comando(mode);
+    send_comando(ddram1L);//SOBRA ESTA LINEA DE CODIGO.
+    while (1) {
+
+
+
+      send_comando(ddram1L);
+sprintf(freq_string, "Cargando:%d", carga);
+        for (int i = 0; i < 11; i++) {
+            send_dato(freq_string[i]);
+}
+       
+carga++;
+
+        if(carga > 100) {
+            carga = 0; // reiniciar la carga al llegar a 100%
+        }
+
+        // esperar 250 ms
+        for(int i = 0; i < 1000000; i++);
+
+    }
+    return 0;
+}
